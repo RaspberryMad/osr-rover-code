@@ -1,0 +1,2 @@
+A nivel de este documento podemos alojar todo el codigo de vision.
+No olvidamos eliminar este documento (para_eliminar.txt) a la hora de subir el codigo.
