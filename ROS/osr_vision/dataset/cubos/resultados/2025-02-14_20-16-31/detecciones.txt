@@ -1,0 +1,2 @@
+Detección 1: one (Confianza: 0.97) Coordenadas: (1249, 1620, 1839, 1848)
+Detección 2: red box (Confianza: 0.96) Coordenadas: (969, 1061, 2075, 2230)

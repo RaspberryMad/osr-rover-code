@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 11
+names: ['blue box', 'eight', 'five', 'four', 'nine', 'one', 'red box', 'seven', 'six', 'three', 'two']
+
+roboflow:
+  workspace: guillermozarate
+  project: rover-image-detection-1c0ee
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/guillermozarate/rover-image-detection-1c0ee/dataset/1

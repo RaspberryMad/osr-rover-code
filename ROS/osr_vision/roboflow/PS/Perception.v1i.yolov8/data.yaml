@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['box']
+
+roboflow:
+  workspace: madsenerbot
+  project: perception-dw1a7
+  version: 1
+  license: Public Domain
+  url: https://universe.roboflow.com/madsenerbot/perception-dw1a7/dataset/1
