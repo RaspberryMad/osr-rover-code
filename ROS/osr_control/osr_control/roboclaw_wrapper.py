@@ -11,7 +11,6 @@ from osr_control.roboclaw import Roboclaw
 from sensor_msgs.msg import JointState
 from osr_interfaces.msg import CommandDrive, Status
 
-
 class RoboclawWrapper(Node):
     """Interface between the roboclaw motor drivers and the higher level rover code"""
 
@@ -133,6 +132,10 @@ class RoboclawWrapper(Node):
         self.idle = False
         self.fast_timer = self.create_timer(fast_loop_rate, self.fast_update)
         self.slow_timer = self.create_timer(slow_loop_rate, self.slow_update)
+
+        self.qpps_max = 38000 # Velocidad máxima en pulsos/s
+        self.vel_levels = 127 # Las funciones ForwardM1 (M2) y BackwardM1 (M2) aceptan como entradas ints entre 0 y 127
+
         self.log.debug("Initialized Roboclaw wrapper node")
 
     def parameters_callback(self, params):
@@ -243,6 +246,7 @@ class RoboclawWrapper(Node):
                                                        self.encoder_limits[motor_name][1],
                                                        properties['ticks_per_rev'],
                                                        properties['gear_ratio']))
+            #print('a enc_msg.velocity se está appendeando:', self.qpps2velocity(velocity, properties['ticks_per_rev'], properties['gear_ratio']))
             enc_msg.velocity.append(self.qpps2velocity(velocity,
                                                        properties['ticks_per_rev'],
                                                        properties['gear_ratio']))
@@ -326,16 +330,26 @@ class RoboclawWrapper(Node):
         if self.duty_mode:
             target_qpps *= self.velocity_qpps_to_duty_factor
         target_qpps = max(-self.roboclaw_overflow, min(self.roboclaw_overflow, target_qpps))
+        # MODIFIED: 
+        # SpeedAccelM1(2) does not work so the code has been modified to use ForwardM1(2) and BackwardM1(2)
         if channel == "M1":
             if self.duty_mode:
                 return self.rc.DutyAccelM1(address, self.drive_accel, target_qpps)
             else:
-                return self.rc.SpeedAccelM1(address, self.drive_accel, target_qpps)
+                #return self.rc.SpeedAccelM1(address, self.drive_accel, target_qpps)
+                if target_qpps >= 0:
+                    return self.rc.ForwardM1(address, round(target_qpps * self.vel_levels / self.qpps_max))
+                else:
+                    return self.rc.BackwardM1(address, round(-target_qpps * self.vel_levels / self.qpps_max))
         elif channel == "M2":
             if self.duty_mode:
                 return self.rc.DutyAccelM2(address, self.drive_accel, target_qpps)
             else:
-                return self.rc.SpeedAccelM2(address, self.drive_accel, target_qpps)
+                #return self.rc.SpeedAccelM2(address, self.drive_accel, target_qpps)
+                if target_qpps >= 0:
+                    return self.rc.ForwardM2(address, round(target_qpps * self.vel_levels / self.qpps_max))
+                else:
+                    return self.rc.BackwardM2(address, round(-target_qpps * self.vel_levels / self.qpps_max))
         else:
             raise AttributeError("Received unknown channel '{}'. Expected M1 or M2".format(channel))
 
@@ -343,6 +357,7 @@ class RoboclawWrapper(Node):
         """Wrapper around self.rc.ReadSpeedM1 and self.rcReadSpeedM2 to simplify code"""
         if channel == "M1":
             val = self.rc.ReadSpeedM1(address)
+            # print('ReadSpeedM1 da: ', val[1])
         elif channel == "M2":
             val = self.rc.ReadSpeedM2(address)
         else:

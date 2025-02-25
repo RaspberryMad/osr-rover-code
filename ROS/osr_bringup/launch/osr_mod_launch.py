@@ -34,7 +34,7 @@ def generate_launch_description():
         )
     )
     ld.add_action(
-        DeclareLaunchArgument('enable_odometry', default_value='false')
+        DeclareLaunchArgument('enable_odometry', default_value='true')
     )
     ld.add_action(
         Node(
@@ -44,11 +44,12 @@ def generate_launch_description():
             output='screen',
             emulate_tty=True,
             respawn=True,
-            parameters=[{'centered_pulse_widths': [152, 150, 144, 146]}]  # pulse width where the corner motors are in their default position, see rover_bringup.md.
+            parameters=[{'centered_pulse_widths': [144, 146, 152, 150]}]  # pulse width where the corner motors are in their default position, see rover_bringup.md.
         )
     )
+    # B R 0-144 ,F R 1-146  ,F L 2 - 152 , B L 3-150 ,
     ld.add_action(
-        DeclareLaunchArgument('enable_odometry', default_value='false')
+        DeclareLaunchArgument('enable_odometry', default_value='true')
     )
     ld.add_action(
         Node(

@@ -75,6 +75,9 @@ class ServoWrapper(Node):
             angle = max(min(angle, self.servo_actuation_range), 0)
             # send to motor
             self.kit.servo[ind].angle = angle
+            print("angle", angle)
+            self.get_logger().info(f"angle: {angle}")
+
 
     def publish_encoder_estimate(self):
         """

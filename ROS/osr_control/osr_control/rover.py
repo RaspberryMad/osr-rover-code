@@ -60,9 +60,10 @@ class Rover(Node):
         self.curr_velocities = {}
         self.curr_twist = TwistWithCovariance()
         self.curr_turning_radius = self.max_radius
+        self.gear_ratio = 26.9
 
         self.cmd_vel_sub = self.create_subscription(Twist, "/cmd_vel", 
-                                                    partial(self.cmd_cb, intuitive=False), 1)
+                                                    partial(self.cmd_cb, intuitive=True), 1)
         self.cmd_vel_int_sub = self.create_subscription(Twist, "/cmd_vel_intuitive", 
                                                         partial(self.cmd_cb, intuitive=True), 1)
         self.drive_enc_sub = self.create_subscription(JointState, "/drive_state", self.enc_cb, 1)
@@ -76,7 +77,7 @@ class Rover(Node):
         self.corner_cmd_pub = self.create_publisher(CommandCorner, "/cmd_corner", 1)
         self.drive_cmd_pub = self.create_publisher(CommandDrive, "/cmd_drive", 1)
 
-    def cmd_cb(self, twist_msg, intuitive=False):
+    def cmd_cb(self, twist_msg, intuitive=True):
         """
         Respond to an incoming Twist command in one of two ways depending on the mode (intuitive)
 
@@ -150,7 +151,11 @@ class Rover(Node):
             self.odometry.twist.covariance[-1] = 0.04
             self.odometry.twist = self.curr_twist
             self.odometry.header.stamp = now.to_msg()
-            self.odometry_pub.publish(self.odometry)
+            # MODIFIED: 
+            # If the rover is rotating in place, curr_twist.angular.angular.x will be set to 1.0 to indicate it (this makes no physical sense, it is just a trick to know the odometry msg is incorrect).
+            # No odometry is available when this happens so this 'if' condition has been added to avoid fake odom publications.
+            if self.curr_twist.twist.angular.x == 0.0:
+                self.odometry_pub.publish(self.odometry)
             transform_msg = TransformStamped()
             transform_msg.header.frame_id = "odom"
             transform_msg.child_frame_id = "base_link"
@@ -384,15 +389,28 @@ class Rover(Node):
 
         # we know that the linear velocity in x direction is the instantaneous velocity of the middle virtual
         # wheel which spins at the average speed of the two middle outer wheels.
-        drive_angular_velocity = (self.curr_velocities['drive_left_middle'] + self.curr_velocities['drive_right_middle']) / 2.
-        self.curr_twist.twist.linear.x = drive_angular_velocity * self.wheel_radius
+
+        # MODIFIED: 
+        # In the original code, this was a sum (wrong because 'drive_right_middle' has opposite sign).
+        # The factor self.gear_ratio has also been added because curr_velocities gives the angular velocities of the actuators (not the wheels).
+        drive_angular_velocity = (self.curr_velocities['drive_left_middle'] - self.curr_velocities['drive_right_middle']) * self.gear_ratio / 2
+
+        self.curr_twist.twist.linear.x = drive_angular_velocity * self.wheel_radius 
+        self.curr_twist.twist.angular.x = 0.0 # If this is 0 it means the rover is not twisting in place
+
         # now calculate angular velocity from its relation with linear velocity and turning radius
-        try:
+
+        # MODIFIED: 
+        # This part used try/except in the original code but it gives fake info when self.curr_turning_radius is very small.
+        if abs(self.curr_turning_radius) > 0.01:
             self.curr_twist.twist.angular.z = self.curr_twist.twist.linear.x / self.curr_turning_radius
-        except ZeroDivisionError:
-            self.get_logger().warn("Current turning radius was calculated as zero which"
-                                   "is an illegal value. Check your wheel calibration.")
-            self.curr_twist.twist.angular.z = 0.  # turning in place is currently unsupported
+        else:
+            # MODIFIED: 
+            # We include an angular velocity in the x component of the odometry msg (physically imposible) to identify when the robot is rotating in place and avoid publishing fake odometry.
+            # self.get_logger().warn("Current turning radius was calculated as zero whichis an illegal value. Check your wheel calibration.")
+            self.get_logger().warn("Odometry is not beeing published while spinning in place.") # You migh comment this line if it bothers you.
+            self.curr_twist.twist.angular.z = 0.0 # turning in place is currently unsupported
+            self.curr_twist.twist.angular.x = 1.0 # Adding this to identify no odom publishing scenario
 
 
 def main(args=None):
